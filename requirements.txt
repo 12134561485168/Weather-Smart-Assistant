@@ -1,0 +1,35 @@
+# ============================================
+# 晴雨知心 · 后端运行依赖
+# 安装命令：
+#   pip install -r requirements.txt
+# ============================================
+
+# ---- Web 服务 ----
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.4
+python-dotenv==1.2.3
+
+# ---- LangChain / LangGraph ----
+langchain==1.3.15
+langchain-core==1.6.0
+langchain-community==0.4.2          # PyMuPDFLoader 等文档加载器
+langchain-text-splitters==1.1.2
+langchain-openai==1.6.0             # init_chat_model 的 openai provider
+langchain-ollama==1.1.0             # ChatOllama / OllamaEmbeddings
+langchain-mcp-adapters==0.3.2       # MultiServerMCPClient
+langchain-redis==0.2.5              # RedisVectorStore
+langgraph==1.2.11
+langgraph-checkpoint-redis==0.5.2   # RedisSaver 检查点
+
+# ---- MCP 天气服务器 ----
+mcp==1.29.0                         # FastMCP (streamable-http)
+openmeteo-requests==1.7.5           # Open-Meteo 天气数据
+pandas==2.3.3
+requests-cache==1.3.3
+retry-requests==2.0.0
+httpx==0.28.1                       # 高德地理编码
+
+# ---- Redis 向量检索 (RAG) ----
+redis==5.3.1
+pymupdf==1.28.2                     # PDF 解析

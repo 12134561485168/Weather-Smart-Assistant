@@ -36,7 +36,7 @@ def get_time():
 
 
 @mcp.tool()
-def get_weather(address:str, start_date: str, end_date: str):
+def get_weather(address: str, start_date: str, end_date: str):
     """根据地址（中文地名或详细地址）查询天气，返回当前天气与指定日期区间的逐小时天气预报。
 
     参数:
@@ -51,7 +51,7 @@ def get_weather(address:str, start_date: str, end_date: str):
         - 返回值为 JSON 字符串，顶层含 "当前天气"（当前时刻）与 "逐小时预报"
           （日期时间、温度、湿度、体感温度、降水概率/降水量、风速、风向等）。
     """
-    lat,lon = get_location_by_amap(address)
+    lat, lon = get_location_by_amap(address)
     cache_session = requests_cache.CachedSession(".cache", expire_after=3600)
     retry_session = retry(cache_session, retries=3, backoff_factor=0.2)
     openmeteo = openmeteo_requests.Client(session=retry_session)

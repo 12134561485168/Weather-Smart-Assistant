@@ -2,24 +2,27 @@ from langgraph.graph import StateGraph, START, END
 from node import get_graph
 import os
 from dotenv import load_dotenv
+
 load_dotenv()  # 加载 .env 文件中的环境变量
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     graph = get_graph()
     config = {"configurable": {"thread_id": "test0"}}
-    
+
     # for chunk, _metadata in graph.stream({"question": "北理工明天天气如何"}, stream_mode="messages"):
     #     # print(f"type of chunk:{type(chunk)}")  # 调试时可打开
     #     print(chunk)
     #     print(chunk.additional_kwargs.get('reasoning_content',''),end='')
 
-    for chunk,_ in graph.stream({"question": "北理工明天天气如何"},config,stream_mode='messages'):
-        if chunk.content!='':
-            print(chunk.content,end='')
+    for chunk, _ in graph.stream(
+        {"question": "北理工明天天气如何"}, config, stream_mode="messages"
+    ):
+        if chunk.content != "":
+            print(chunk.content, end="")
         else:
             try:
                 # print(chunk.tool_call_chunks[-1].get('args',''),end='')
-                print(chunk.additional_kwargs.get('reasoning_content',''),end='')
+                print(chunk.additional_kwargs.get("reasoning_content", ""), end="")
             except:
                 pass
 

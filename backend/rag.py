@@ -5,6 +5,7 @@ import redis
 from model import embeddings_model
 import os
 from dotenv import load_dotenv
+
 load_dotenv()  # 加载 .env 文件中的环境变量
 
 
@@ -40,6 +41,7 @@ def add_rag_pdf(file_path=r"rag\9787502958572_L.pdf"):
     for i in splitter_documents[1:]:
         re.add_documents([i])
 
+
 def del_rag(index_name):
     # 直接通过 redis 客户端删除索引及关联文档
     client = redis.from_url(os.getenv("REDIS_URL"))
@@ -54,14 +56,15 @@ def get_retriever(question):
     )
 
     vector_store = RedisVectorStore(embeddings, config=config)
-    results = vector_store.similarity_search_with_score(question,5)
-    result = ''
-    for i,j in results:
-        if j >0.5:
+    results = vector_store.similarity_search_with_score(question, 5)
+    result = ""
+    for i, j in results:
+        if j > 0.5:
             result += i.page_content
     return result
+
 
 if __name__ == "__main__":
     # del_rag("weather")
     # add_rag_pdf()
-    print(get_retriever('重大气象灾害之后要注意什么'))
+    print(get_retriever("重大气象灾害之后要注意什么"))

@@ -13,7 +13,9 @@ ROOT_MARKER = "__root__"
 class Question(BaseModel):
     thread_id: str
     question: str | None = None  # 可选字段
-    checkpoint_id: str | None = None  # 可选：从指定历史检查点分支继续（重新回答/选择续接点）
+    checkpoint_id: str | None = (
+        None  # 可选：从指定历史检查点分支继续（重新回答/选择续接点）
+    )
 
 
 app = FastAPI()
@@ -53,9 +55,11 @@ def answer(question: Question):
 
     before_cid = graph.get_state(cfg).config["configurable"].get("checkpoint_id")
     result = graph.invoke({"question": question.question}, cfg)
-    after_cid = graph.get_state(
-        {"configurable": {"thread_id": thread_id}}
-    ).config["configurable"].get("checkpoint_id")
+    after_cid = (
+        graph.get_state({"configurable": {"thread_id": thread_id}})
+        .config["configurable"]
+        .get("checkpoint_id")
+    )
     return {
         "result": result["result"],
         "before_checkpoint_id": before_cid,  # 该问题提问前（重新回答 / 撤销的基准）

@@ -1,10 +1,10 @@
 import json
 import re
 from functools import lru_cache
-
+import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
-from model import chat_model, chat_small_model
+from model import chat_model
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import JsonOutputParser
@@ -35,7 +35,7 @@ class InputState(TypedDict):
 
 
 class OutputState(TypedDict):
-    result: dict|str|None
+    result: dict
 
 
 class GraphState(InputState, OutputState):
@@ -46,7 +46,7 @@ with open("mcp.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
 
-async def weather(state: GraphState):
+def weather(state: GraphState):
     async def _run_async_logic():
         client = MultiServerMCPClient(connections=config)
         tools = await client.get_tools()
@@ -111,7 +111,7 @@ async def weather(state: GraphState):
         return response["messages"][length:], response["structured_response"]
 
     try:
-        messages, result = await _run_async_logic()
+        messages, result = asyncio.run(_run_async_logic())
         if result == None:
             result = messages[-1].content
         return {"messages": messages, "result": result}
@@ -124,7 +124,7 @@ def input(state: GraphState):
 
 
 def router(state: GraphState):
-    model = chat_small_model()
+    model = chat_model()
 
     class router_data(TypedDict):
         flag: Annotated[int, "判断用户请求类型"]
@@ -176,19 +176,6 @@ def router(state: GraphState):
         except (TypeError, ValueError):
             flag = 2
 
-    # 确定性兜底：仅当模型判为 2（实时查询）时，校验“是否已在历史中问过”。
-    # 若最新问题与历史某条用户消息去除空白/标点后完全相同，说明是重复询问同一份天气 → 降级为 1
-    if flag == 2:
-        def _norm(s):
-            return "".join(
-                c for c in str(s)
-                if not c.isspace() and c not in " \t\n\r，。！？；：,.!?;:、·「」『』（）()【】[]《》\"'“”‘’"
-            )
-        latest = state["messages"][-1].content if state["messages"] else ""
-        prev = [m.content for m in state["messages"][:-1] if isinstance(m, HumanMessage)]
-        if latest and any(_norm(m) == _norm(latest) for m in prev):
-            flag = 1
-
     return flag
 
 
@@ -222,9 +209,7 @@ def weather_analysis(state: GraphState):
     )
     length = len(state["messages"])
     response = agent.invoke(
-        {
-            "messages": state["messages"]
-        },
+        {"messages": state["messages"]},
         # 防止继承父图的 RedisSaver（同步 saver 不支持异步 agent 的
         # aget_tuple），子 agent 使用独立无 checkpointer 的会话
         {"configurable": {CONFIG_KEY_CHECKPOINTER: None}},

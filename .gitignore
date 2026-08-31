@@ -1,0 +1,36 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ---- 环境变量与密钥（切勿提交）----
+.env
+.env.*
+*.pem
+*.key
+
+# ---- 运行时缓存与数据库 ----
+.cache
+.cache.sqlite
+*.sqlite
+*.db
+
+# ---- Node / 前端 ----
+node_modules/
+dist/
+*.local
+npm-debug.log*
+
+# ---- IDE / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+start.bat
+
+# ---- 日志 ----
+*.log

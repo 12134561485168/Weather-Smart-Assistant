@@ -18,32 +18,43 @@
 | 后端 API | FastAPI | `/answer`、`/revoke` 两个接口，与 LangGraph 图交互 |
 | 图编排 | LangGraph + RedisSaver | 节点：input → router → weather / weather_analysis / general |
 | MCP 服务器 | FastMCP (streamable-http) | 天气工具（Open-Meteo）+ 地理编码（高德地图） |
-| 模型 | OpenAI 兼容 API + Ollama | 主对话模型经 `init_chat_model` 加载；本地 Qwen 及嵌入模型走 Ollama |
+| 模型 | OpenAI 兼容 API + Ollama | 主对话与子 Agent 经 `init_chat_model` 加载；本地 Qwen 小模型做意图分类、嵌入模型走 Ollama |
 | RAG | RedisVectorStore + OllamaEmbeddings | PDF → 切分 → 向量化 → 相似度检索 |
 
 ## 目录结构
 
 ```
 project2/
+├── LICENSE                    # MIT 许可证
+├── .gitignore                 # Git 忽略规则
 ├── requirements.txt           # 后端 Python 依赖
+├── start.bat                  # 一键启动（MCP 天气服务器 + 后端 API + 前端）
 ├── backend/                   # 后端（所有 Python 服务）
 │   ├── .env                   # 环境变量（模型、密钥、Redis、Ollama 配置）
-│   ├── mcp.json               # MCP 客户端连接配置（串口指向 MCP 服务器）
+│   ├── mcp.json               # MCP 客户端连接配置（端口指向 MCP 服务器）
 │   ├── api.py                 # FastAPI 入口（/answer、/revoke）
 │   ├── node.py                # LangGraph 状态图定义与节点实现
-│   ├── model.py               # 模型工厂（chat_model / Ollama / embeddings）
+│   ├── model.py               # 模型工厂（主对话模型 / Ollama 小模型 / embeddings）
 │   ├── tool.py                # MCP 天气服务器（天气查询 + 高德地理编码）
-│   ├── rag.py                 # RAG 初始化、增量入库、检索（含 PDF）
+│   ├── rag.py                 # RAG：PDF 入库、索引删除、向量检索
+│   ├── test.py                # 图调用调试脚本
 │   └── rag/9787502958572_L.pdf# 气象知识资料源
 └── frontend/                  # Vue 3 前端
-    └── src/App.vue            # 分支会话主界面
+    ├── index.html
+    ├── package.json           # 依赖与脚本（npm run dev）
+    ├── vite.config.js         # 端口 5173，代理 /answer、/revoke 到 5000
+    └── src/
+        ├── main.js
+        ├── style.css
+        ├── App.vue            # 分支会话主界面
+        └── components/WeatherReport.vue  # 气象播报单卡片
 ```
 
 ## 环境要求
 
 - Python 3.10+
 - Redis（`.env` 中默认 `redis://localhost:26379`，另支持 Redis Stack 向量检索）
-- Ollama（默认 `http://localhost:11434`，需具备嵌入模型如 `qwen3-embedding:latest`）
+- Ollama（默认 `http://localhost:11434`，需对话模型如 `qwen3.5:9b` 与嵌入模型如 `qwen3-embedding:latest`）
 - Node.js + npm（前端构建）
 
 ## 安装
@@ -66,6 +77,7 @@ npm install
 | `REDIS_URL` | Redis 地址（检查点 + 向量库共用） |
 | `model` / `model_provider` / `model_api` / `base_url` | OpenAI 兼容主对话模型配置 |
 | `ollama_url` / `ollama_model` / `embeddings_model` | 本地 Ollama 推理与嵌入模型 |
+| `ollama_reasoning` / `ollama_temperature` | Ollama 小模型的推理模式与采样温度（可选） |
 | `amap_key` | 高德地图 Web 服务 Key（地理编码） |
 
 > 注意：`.env` 含密钥，请勿提交到版本库。
@@ -74,7 +86,7 @@ npm install
 
 ```bat
 cd backend
-python rag.py   # 默认执行 get_retriever 调试；初始化索引请打开 rag_init() 注释
+python rag.py   # 默认执行 get_retriever 调试；初始化索引请打开 add_rag_pdf() 注释（缺省写入内置气象 PDF，也可传自定义 PDF 路径）
 ```
 
 ## 启动
@@ -91,6 +103,7 @@ npm run dev
 ```
 
 > 启动前请确保 Redis 与 Ollama 已运行。前端通过 Vite 代理 `/answer`、`/revoke` 到 `127.0.0.1:5000` 以避免跨域。
+> 也可直接运行根目录 `start.bat` 一键启动三项服务（MCP 天气服务器 `8000`、后端 API `5000`、前端 `5173`）。
 
 ## 核心流程
 
@@ -125,6 +138,8 @@ npm run dev
 }
 ```
 
+> `result` 类型因路由分支而异：实时天气查询返回结构化 `dict`；知识问答 / 无关拒绝 / 兜底场景返回 `str`；天气服务不可用时为 `null`。
+
 **POST `/revoke`** — 撤销某轮回答（回溯到指定检查点；不传 `checkpoint_id` 则清空整个线程）
 
 ```json
@@ -137,3 +152,7 @@ npm run dev
 - 问：`为什么会下雪？` → RAG 知识问答
 - 问：`帮我写封邮件` → 无关拒绝提示
 - 多轮：`那后天呢？` → 时间维度追问，触发新的实时查询
+
+## License
+
+[MIT](LICENSE) © SunnyWeather Contributors

@@ -1,0 +1,76 @@
+:root {
+  /* 气象台 · 夜空配色 */
+  --bg-0: #070d1b;
+  --bg-1: #0c1630;
+  --ink: #e8edf7;
+  --ink-dim: #9aa8c3;
+  --ink-faint: #64748f;
+  --sun: #f2b45c;          /* 阳光 · 琥珀金  */
+  --sky: #7cc4f2;          /* 天空 · 冰蓝    */
+  --rain: #5eead4;         /* 雨 · 青绿      */
+  --card: rgba(255, 255, 255, 0.045);
+  --card-strong: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.1);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --danger: #f48fb1;
+  --serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --sans: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--sans);
+  color: var(--ink);
+  background: var(--bg-0);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 夜空极光背景 */
+#app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(1200px 800px at 85% -10%, rgba(46, 105, 158, 0.5), transparent 60%),
+    radial-gradient(900px 700px at -10% 110%, rgba(15, 118, 110, 0.35), transparent 55%),
+    radial-gradient(700px 500px at 50% 120%, rgba(120, 72, 20, 0.22), transparent 60%),
+    linear-gradient(160deg, var(--bg-1) 0%, var(--bg-0) 55%, #060a15 100%);
+}
+
+/* 细颗粒噪点 */
+#app::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: rgba(242, 180, 92, 0.3);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  color: inherit;
+}

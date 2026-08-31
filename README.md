@@ -54,7 +54,7 @@ project2/
 
 - Python 3.10+
 - Redis（`.env` 中默认 `redis://localhost:26379`，另支持 Redis Stack 向量检索）
-- Ollama（默认 `http://localhost:11434`，需对话模型如 `qwen3.5:9b` 与嵌入模型如 `qwen3-embedding:latest`）
+- Ollama（默认 `http://localhost:11434`，需对话模型如 `qwen3.8:27b` 与嵌入模型如 `qwen3-embedding:latest`）
 - Node.js + npm（前端构建）
 
 ## 安装
@@ -70,15 +70,23 @@ npm install
 
 ## 配置
 
-编辑 `backend/.env`：
+编辑 `backend/.env`，所需变量如下（`—` 表示无默认值、必填）：
 
-| 变量 | 说明 |
-| --- | --- |
-| `REDIS_URL` | Redis 地址（检查点 + 向量库共用） |
-| `model` / `model_provider` / `model_api` / `base_url` | OpenAI 兼容主对话模型配置 |
-| `ollama_url` / `ollama_model` / `embeddings_model` | 本地 Ollama 推理与嵌入模型 |
-| `ollama_reasoning` / `ollama_temperature` | Ollama 小模型的推理模式与采样温度（可选） |
-| `amap_key` | 高德地图 Web 服务 Key（地理编码） |
+| 变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `REDIS_URL` | `redis://localhost:26379` | Redis 地址（检查点 + 向量库共用） |
+| `model` | `deepseek-v4-flash` | OpenAI 兼容主对话模型标识（播报 / 子 Agent / 知识问答） |
+| `model_provider` | `openai` | 云端模型供应商 |
+| `model_api` | — | 云端模型 API Key（必填） |
+| `base_url` | — | OpenAI 兼容 API 地址（必填） |
+| `route_model` | `cloud` | 路由意图分类模型：`cloud`=云端 `model` / `local`=本地 `ollama_model` |
+| `ollama_url` | `http://localhost:11434` | Ollama 服务地址 |
+| `ollama_model` | `qwen3.5:4b` | 本地对话模型（`route_model=local` 时兼作路由模型） |
+| `embeddings_model` | `qwen3-embedding:latest` | Ollama 嵌入模型（RAG 向量化） |
+| `ollama_reasoning` | `false` | 本地模型推理模式开关 |
+| `ollama_temperature` | `0.7` | 本地模型采样温度 |
+| `host` / `port` | `127.0.0.1` / `8000` | MCP 天气服务器监听地址与端口 |
+| `amap_key` | — | 高德地图 Web 服务 Key（地理编码，必填） |
 
 > 注意：`.env` 含密钥，请勿提交到版本库。
 
@@ -109,7 +117,7 @@ npm run dev
 
 ```
 用户提问 → input 节点（写入 HumanMessage）
-        → router 节点（LLM 三分类，含重复询问兜底校验）
+        → router 节点（LLM 三分类，含重复询问兜底校验；意图分类模型按 `route_model` 可选云端或本地）
             ├── 2 实时查询 → weather 节点
             │     ├─ 初始化 MCP 客户端（mcp.json）
             │     ├─ 子 Agent 调用天气工具 → 结构化 Result

@@ -27,6 +27,18 @@ def chat_ollama_model():
 
 
 @lru_cache(maxsize=1)
+def chat_router_model():
+    """路由/意图分类模型：由 .env 的 `route_model` 决定使用云端还是本地模型。
+
+    - `cloud`（默认）：复用 OpenAI 兼容的 `chat_model()`
+    - `local`：使用本地 Ollama 的 `chat_ollama_model()`
+    """
+    if os.getenv("route_model", "cloud").strip().lower() == "local":
+        return chat_ollama_model()
+    return chat_model()
+
+
+@lru_cache(maxsize=1)
 def embeddings_model():
 
     return OllamaEmbeddings(

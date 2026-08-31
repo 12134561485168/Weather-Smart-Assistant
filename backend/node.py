@@ -4,7 +4,7 @@ from functools import lru_cache
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain.agents import create_agent
-from model import chat_model
+from model import chat_model, chat_router_model
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.output_parsers import JsonOutputParser
@@ -124,7 +124,7 @@ def input(state: GraphState):
 
 
 def router(state: GraphState):
-    model = chat_model()
+    model = chat_router_model()
 
     class router_data(TypedDict):
         flag: Annotated[int, "判断用户请求类型"]

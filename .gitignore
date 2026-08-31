@@ -6,8 +6,7 @@ __pycache__/
 .venv/
 venv/
 env/
-1.py/
-1.txt/
+
 # ---- 环境变量与密钥（切勿提交）----
 .env
 .env.*
@@ -35,3 +34,9 @@ start.bat
 
 # ---- 日志 ----
 *.log
+
+# ---- 根目录临时 / 调试脚本（非项目正式代码）----
+/1.py
+/1.txt
+/api.py
+/main.py

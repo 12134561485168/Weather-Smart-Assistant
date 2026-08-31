@@ -6,8 +6,8 @@ __pycache__/
 .venv/
 venv/
 env/
-1.py
-1.txt
+1.py/
+1.txt/
 # ---- 环境变量与密钥（切勿提交）----
 .env
 .env.*

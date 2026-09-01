@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **实时天气播报**：通过 MCP（FastMCP，streamable-http）调用天气工具，获取当前天气与逐小时预报（温度、湿度、体感、降水概率、风况等）；含 `get_time` 工具辅助时间感知
+- **实时天气播报**：通过 MCP（FastMCP，streamable-http）调用两个工具——`get_weather`（地址 + 日期区间 → Open-Meteo 当前天气与逐小时预报：温度、湿度、体感、降水概率、风况等；内部调用高德地理编码将地址解析为经纬度）与 `get_time`（北京时间，辅助时间感知）
 - **智能路由**：LangGraph 三分类路由（实时查询 / 知识问答 / 无关拒绝），结合多轮上下文判断"首次查询"与"重复询问"；意图分类模型可按 `route_model` 切换云端或本地
 - **RAG 知识问答**：PDF 气象资料切分后写入 Redis 向量库，结合 Ollama 嵌入模型检索作答
 - **分支会话**：基于 Redis checkpointer，支持对任意一轮回答**重新回答 / 编辑 / 撤销**；问答以分支树组织，左侧（AI 侧）可翻页切换"重新回答"版本、用户侧可切换"问题版本"，两个切换轴相互独立，切换时后续消息自动跟随
@@ -18,7 +18,7 @@
 | 前端 | Vue 3 + Vite | 对话式 UI，分支树展示，气象播报单侧栏 |
 | 后端 API | FastAPI | `/answer` 接口，支持从历史检查点 fork 执行 |
 | 图编排 | LangGraph + RedisSaver | 节点：input → router → weather / weather_analysis / general；历史过长时 input 节点自动摘要压缩 |
-| MCP 服务器 | FastMCP (streamable-http) | 天气工具（Open-Meteo）+ 地理编码（高德地图）+ 北京时间工具 |
+| MCP 服务器 | FastMCP (streamable-http) | 两个工具：`get_weather`（Open-Meteo 天气，地址解析内部走高德地理编码）+ `get_time`（北京时间） |
 | 模型 | OpenAI 兼容 API + Ollama | 主对话与子 Agent 经 `init_chat_model` 加载（`chat_model` 可选云端/本地）；路由模型按 `route_model` 独立选择；嵌入模型走 Ollama |
 | RAG | RedisVectorStore + OllamaEmbeddings | PyMuPDFLoader → 切分 → 向量化 → 相似度检索（阈值过滤） |
 
@@ -36,9 +36,9 @@ project2/
 │   ├── api.py                 # FastAPI 入口（/answer；支持 `__root__` 特殊检查点）
 │   ├── node.py                # LangGraph 状态图定义与节点实现
 │   ├── model.py               # 模型工厂（主对话模型 cloud/local、路由模型、embeddings）
-│   ├── tool.py                # MCP 天气服务器（天气查询 + 高德地理编码 + 北京时间）
+│   ├── tool.py                # MCP 天气服务器（get_weather 天气查询 + get_time 北京时间；get_weather 内部经高德地理编码解析地址）
 │   ├── rag.py                 # RAG：PDF 入库、索引删除、向量检索
-│   └── rag/9787502958572_L.pdf# 气象知识资料源
+│   └── rag/                   # 气象知识资料源（内置气象 PDF 及国标/科普等资料，由 rag.py 读取入库）
 └── frontend/                  # Vue 3 前端
     ├── index.html
     ├── package.json           # 依赖与脚本（npm run dev）
@@ -46,15 +46,17 @@ project2/
     └── src/
         ├── main.js
         ├── style.css
+        ├── markdown.js        # 轻量 Markdown 渲染（对话气泡与播报卡片共用，安全转义后只注入白名单标签）
         ├── App.vue            # 分支会话主界面（含气象播报单侧栏）
-        └── components/WeatherReport.vue  # 气象播报单卡片（普通 / 紧凑两种模式）
+        └── components/
+            └── WeatherReport.vue  # 气象播报单卡片（普通 / 紧凑两种模式）
 ```
 
 ## 环境要求
 
 - Python 3.10+
 - Redis（`.env` 中默认 `redis://localhost:26379`，需支持 Redis 向量检索）
-- Ollama（默认 `http://localhost:11434`，需对话模型（如 `qwen3.8:27b`）与嵌入模型 `qwen3-embedding:latest`）
+- Ollama（默认 `http://localhost:11434`，需本地对话模型（如 `qwen3.5:4b`）与嵌入模型 `qwen3-embedding:latest`）
 - Node.js + npm（前端构建）
 
 ## 安装
@@ -95,7 +97,7 @@ npm install
 
 ```bat
 cd backend
-python rag.py   # 默认执行 get_retriever 调试；初始化索引请打开 add_rag_pdf() 注释（缺省写入内置气象 PDF，也可传自定义 PDF 路径）
+python rag.py   # 将 rag/ 目录下的气象资料 PDF（内置气象 PDF + 国标/科普资料）写入 Redis 索引，并执行一次检索调试；add_rag_pdf(file_path=...) 可传入自定义 PDF 路径
 ```
 
 ## 启动

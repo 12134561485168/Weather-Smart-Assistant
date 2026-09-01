@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// 后端 FastAPI 默认运行在 8000 端口，通过代理避免跨域
+// 后端 FastAPI 默认运行在 5000 端口，通过代理避免跨域
 export default defineConfig({
   plugins: [vue()],
   server: {

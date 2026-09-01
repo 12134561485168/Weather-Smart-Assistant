@@ -5,7 +5,7 @@ from functools import lru_cache
 
 
 @lru_cache(maxsize=1)
-def chat_model():
+def chat_cloud_model():
     return init_chat_model(
         model=os.getenv("model", "deepseek-v4-flash"),
         model_provider=os.getenv("model_provider", "openai"),
@@ -25,6 +25,11 @@ def chat_ollama_model():
         num_ctx=8192,
     )
 
+@lru_cache(maxsize=1)
+def chat_model():
+    if os.getenv("chat_model", "cloud").strip().lower() == "local":
+        return chat_ollama_model()
+    return chat_cloud_model()
 
 @lru_cache(maxsize=1)
 def chat_router_model():
@@ -35,7 +40,7 @@ def chat_router_model():
     """
     if os.getenv("route_model", "cloud").strip().lower() == "local":
         return chat_ollama_model()
-    return chat_model()
+    return chat_cloud_model()
 
 
 @lru_cache(maxsize=1)

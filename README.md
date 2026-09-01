@@ -4,40 +4,40 @@
 
 ## 功能特性
 
-- **实时天气播报**：通过 MCP（FastMCP，streamable-http）调用天气工具，获取当前天气与逐小时预报（温度、湿度、体感、降水概率、风况等）
-- **智能路由**：LangGraph 三分类路由（实时查询 / 知识问答 / 无关拒绝），结合多轮上下文判断"首次查询"与"重复询问"
+- **实时天气播报**：通过 MCP（FastMCP，streamable-http）调用天气工具，获取当前天气与逐小时预报（温度、湿度、体感、降水概率、风况等）；含 `get_time` 工具辅助时间感知
+- **智能路由**：LangGraph 三分类路由（实时查询 / 知识问答 / 无关拒绝），结合多轮上下文判断"首次查询"与"重复询问"；意图分类模型可按 `route_model` 切换云端或本地
 - **RAG 知识问答**：PDF 气象资料切分后写入 Redis 向量库，结合 Ollama 嵌入模型检索作答
-- **分支会话**：基于 Redis checkpointer，支持对任意一轮回答**重新回答 / 编辑 / 撤销**，问答以分支树形式组织，可自由切换版本
-- **结构化播报**：AI 以固定结构（时间 / 地点 / 概况 / 详情 / 穿衣 / 出行 / 健康）返回，前端"气象播报单"面板独立渲染卡片
+- **分支会话**：基于 Redis checkpointer，支持对任意一轮回答**重新回答 / 编辑 / 撤销**；问答以分支树组织，左侧（AI 侧）可翻页切换"重新回答"版本、用户侧可切换"问题版本"，两个切换轴相互独立，切换时后续消息自动跟随
+- **结构化播报**：AI 以固定结构（时间 / 地点 / 概况 / 详情 / 穿衣 / 出行 / 健康）返回，前端"气象播报单"侧栏面板独立渲染卡片，随分支切换自动更新
+- **会话压缩**：历史对话过长时自动摘要压缩（保留最近 6 条原文与用户偏好），避免超出模型上下文
 
 ## 技术架构
 
 | 模块 | 技术栈 | 说明 |
 | --- | --- | --- |
 | 前端 | Vue 3 + Vite | 对话式 UI，分支树展示，气象播报单侧栏 |
-| 后端 API | FastAPI | `/answer`、`/revoke` 两个接口，与 LangGraph 图交互 |
-| 图编排 | LangGraph + RedisSaver | 节点：input → router → weather / weather_analysis / general |
-| MCP 服务器 | FastMCP (streamable-http) | 天气工具（Open-Meteo）+ 地理编码（高德地图） |
-| 模型 | OpenAI 兼容 API + Ollama | 主对话与子 Agent 经 `init_chat_model` 加载；本地 Qwen 小模型做意图分类、嵌入模型走 Ollama |
-| RAG | RedisVectorStore + OllamaEmbeddings | PDF → 切分 → 向量化 → 相似度检索 |
+| 后端 API | FastAPI | `/answer`、`/revoke` 两个接口，支持从历史检查点 fork 执行 |
+| 图编排 | LangGraph + RedisSaver | 节点：input → router → weather / weather_analysis / general；历史过长时 input 节点自动摘要压缩 |
+| MCP 服务器 | FastMCP (streamable-http) | 天气工具（Open-Meteo）+ 地理编码（高德地图）+ 北京时间工具 |
+| 模型 | OpenAI 兼容 API + Ollama | 主对话与子 Agent 经 `init_chat_model` 加载（`chat_model` 可选云端/本地）；路由模型按 `route_model` 独立选择；嵌入模型走 Ollama |
+| RAG | RedisVectorStore + OllamaEmbeddings | PyMuPDFLoader → 切分 → 向量化 → 相似度检索（阈值过滤） |
 
 ## 目录结构
 
 ```
 project2/
 ├── LICENSE                    # MIT 许可证
-├── .gitignore                 # Git 忽略规则
+├── .gitignore                 # Git 忽略规则（含 .env、start.bat 等本地文件）
 ├── requirements.txt           # 后端 Python 依赖
-├── start.bat                  # 一键启动（MCP 天气服务器 + 后端 API + 前端）
+├── start.bat                  # 本地一键启动脚本（已被 .gitignore 排除，需按本机环境编辑 PYTHON 路径）
 ├── backend/                   # 后端（所有 Python 服务）
-│   ├── .env                   # 环境变量（模型、密钥、Redis、Ollama 配置）
+│   ├── .env                   # 环境变量（模型、密钥、Redis、Ollama 配置）—— 勿提交
 │   ├── mcp.json               # MCP 客户端连接配置（端口指向 MCP 服务器）
-│   ├── api.py                 # FastAPI 入口（/answer、/revoke）
+│   ├── api.py                 # FastAPI 入口（/answer、/revoke；支持 `__root__` 特殊检查点）
 │   ├── node.py                # LangGraph 状态图定义与节点实现
-│   ├── model.py               # 模型工厂（主对话模型 / Ollama 小模型 / embeddings）
-│   ├── tool.py                # MCP 天气服务器（天气查询 + 高德地理编码）
+│   ├── model.py               # 模型工厂（主对话模型 cloud/local、路由模型、embeddings）
+│   ├── tool.py                # MCP 天气服务器（天气查询 + 高德地理编码 + 北京时间）
 │   ├── rag.py                 # RAG：PDF 入库、索引删除、向量检索
-│   ├── test.py                # 图调用调试脚本
 │   └── rag/9787502958572_L.pdf# 气象知识资料源
 └── frontend/                  # Vue 3 前端
     ├── index.html
@@ -46,15 +46,15 @@ project2/
     └── src/
         ├── main.js
         ├── style.css
-        ├── App.vue            # 分支会话主界面
-        └── components/WeatherReport.vue  # 气象播报单卡片
+        ├── App.vue            # 分支会话主界面（含气象播报单侧栏）
+        └── components/WeatherReport.vue  # 气象播报单卡片（普通 / 紧凑两种模式）
 ```
 
 ## 环境要求
 
 - Python 3.10+
-- Redis（`.env` 中默认 `redis://localhost:26379`，另支持 Redis Stack 向量检索）
-- Ollama（默认 `http://localhost:11434`，需对话模型如 `qwen3.8:27b` 与嵌入模型如 `qwen3-embedding:latest`）
+- Redis（`.env` 中默认 `redis://localhost:26379`，需支持 Redis 向量检索）
+- Ollama（默认 `http://localhost:11434`，需对话模型（如 `qwen3.8:27b`）与嵌入模型 `qwen3-embedding:latest`）
 - Node.js + npm（前端构建）
 
 ## 安装
@@ -79,9 +79,10 @@ npm install
 | `model_provider` | `openai` | 云端模型供应商 |
 | `model_api` | — | 云端模型 API Key（必填） |
 | `base_url` | — | OpenAI 兼容 API 地址（必填） |
+| `chat_model` | `cloud` | 主对话模型来源：`cloud`=云端 `model` / `local`=本地 `ollama_model` |
 | `route_model` | `cloud` | 路由意图分类模型：`cloud`=云端 `model` / `local`=本地 `ollama_model` |
 | `ollama_url` | `http://localhost:11434` | Ollama 服务地址 |
-| `ollama_model` | `qwen3.5:4b` | 本地对话模型（`route_model=local` 时兼作路由模型） |
+| `ollama_model` | `qwen3.5:4b` | 本地对话模型（`chat_model` / `route_model` 为 `local` 时使用） |
 | `embeddings_model` | `qwen3-embedding:latest` | Ollama 嵌入模型（RAG 向量化） |
 | `ollama_reasoning` | `false` | 本地模型推理模式开关 |
 | `ollama_temperature` | `0.7` | 本地模型采样温度 |
@@ -111,22 +112,22 @@ npm run dev
 ```
 
 > 启动前请确保 Redis 与 Ollama 已运行。前端通过 Vite 代理 `/answer`、`/revoke` 到 `127.0.0.1:5000` 以避免跨域。
-> 也可直接运行根目录 `start.bat` 一键启动三项服务（MCP 天气服务器 `8000`、后端 API `5000`、前端 `5173`）。
+> 也可直接运行根目录 `start.bat` 一键启动三项服务（MCP 天气服务器 `8000`、后端 API `5000`、前端 `5173`）。该脚本为本地文件（已被 .gitignore 排除），需先按本机环境修改其中的 `PYTHON` 路径；`api.py` 也支持 `python api.py` 直接跑一次调试查询。
 
 ## 核心流程
 
 ```
-用户提问 → input 节点（写入 HumanMessage）
-        → router 节点（LLM 三分类，含重复询问兜底校验；意图分类模型按 `route_model` 可选云端或本地）
+用户提问 → input 节点（写入 HumanMessage；历史过长时先压缩为摘要）
+        → router 节点（LLM 三分类，含重复询问兜底校验；路由模型按 `route_model` 可选云端或本地）
             ├── 2 实时查询 → weather 节点
             │     ├─ 初始化 MCP 客户端（mcp.json）
-            │     ├─ 子 Agent 调用天气工具 → 结构化 Result
+            │     ├─ 子 Agent（含 SummarizationMiddleware）调用工具 → 结构化 Result
             │     └─ 写入 messages 与 result
             ├── 1 知识问答 → weather_analysis 节点（RAG 检索 + 子 Agent 作答）
             └── 0 无关拒绝 → general 节点
 ```
 
-检查点由 `RedisSaver` 维护（TTL 30 分钟滑动续期），`/answer` 支持传入 `checkpoint_id` 从历史检查点 fork 执行，实现前端的分支与会话回溯。
+检查点由 `RedisSaver` 维护（TTL 30 分钟滑动续期），`/answer` 支持传入 `checkpoint_id` 从历史检查点 fork 执行，实现前端的分支与会话回溯；特殊值 `__root__` 表示从线程最旧的初始（空）检查点继续，用于"重新回答 / 撤销第一轮"。
 
 ## API 接口
 
@@ -147,8 +148,9 @@ npm run dev
 ```
 
 > `result` 类型因路由分支而异：实时天气查询返回结构化 `dict`；知识问答 / 无关拒绝 / 兜底场景返回 `str`；天气服务不可用时为 `null`。
+> `checkpoint_id` 传入历史检查点 id 时从该处 fork 生成独立分支（不污染原记录）；传 `__root__` 时从线程初始空检查点重新执行；非法值返回 400。
 
-**POST `/revoke`** — 撤销某轮回答（回溯到指定检查点；不传 `checkpoint_id` 则清空整个线程）
+**POST `/revoke`** — 删除目标检查点以外的全部回话（含其它分支），回退到该检查点；不传 `checkpoint_id` 则清空整个线程
 
 ```json
 { "thread_id": "12", "checkpoint_id": "xxx" }
@@ -156,10 +158,11 @@ npm run dev
 
 ## 效果演示
 
-- 问：`北理工明天天气如何` → 结构化天气播报卡片
+- 问：`北理工明天天气如何` → 结构化天气播报卡片（左侧气象播报单同步展示）
 - 问：`为什么会下雪？` → RAG 知识问答
 - 问：`帮我写封邮件` → 无关拒绝提示
 - 多轮：`那后天呢？` → 时间维度追问，触发新的实时查询
+- 分支：对任意一轮点击「重新回答 / 编辑」生成新版本，问答可分别翻页切换；点击「撤销」删除该问题及其后续
 
 ## License
 

@@ -11,7 +11,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from typing_extensions import TypedDict
 from typing import Annotated, List, get_type_hints
 from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
+from langgraph.graph.message import add_messages, REMOVE_ALL_MESSAGES
 from langgraph._internal._constants import CONFIG_KEY_CHECKPOINTER
 from langchain.agents.structured_output import ToolStrategy
 from langgraph.checkpoint.redis import RedisSaver
@@ -120,6 +120,35 @@ def weather(state: GraphState):
 
 
 def input(state: GraphState):
+    # 历史消息过长时，先用 chat_model 压缩为摘要，避免超出模型上下文
+    history = state.get("messages") or []
+    total_chars = sum(
+        len(m.content if isinstance(m.content, str) else str(m.content or ""))
+        for m in history
+    )
+    if total_chars // 4 > 4096:  # 粗略估算 token（约 1 token ≈ 4 字符）
+        # 最近 6 条消息保留原文，更早的历史才做摘要
+        older, newest = history[:-6], history[-6:]
+        update = [RemoveMessage(id=REMOVE_ALL_MESSAGES)]  # 清空旧历史后整体替换
+        if older:
+            summary = chat_model().invoke(
+                [
+                    SystemMessage(
+                        content="你是一个对话压缩助手。请将以下对话历史压缩为一份简洁摘要，便于后续继续对话。\n"
+                        "具体要求：\n"
+                        "1. 天气查询结果：只保留最近两次查询的时间、地点与天气结果，更早的查询结果可省略或一笔带过；\n"
+                        "2. 用户偏好（如关注的气象指标、语言偏好等）与未完成的需求：全部保留，不得遗漏；\n"
+                        "3. 寒暄、客套、重复内容等无关信息可省略。"
+                    ),
+                    *older,
+                ]
+            )
+            update.append(
+                SystemMessage(content=f"【以下为之前对话的摘要】\n{summary.content}")
+            )
+        update.extend(newest)
+        update.append(HumanMessage(content=state["question"]))
+        return {"messages": update}
     return {"messages": HumanMessage(content=state["question"])}
 
 
@@ -203,9 +232,6 @@ def weather_analysis(state: GraphState):
         - 以自然、温暖的口吻直接对话，无需按固定板块输出。
         - 礼貌用语 + 适度生活化比喻，可用少量 emoji 点缀，避免数据堆砌。
         """,
-        middleware=[
-            SummarizationMiddleware(model=chat_model(), max_tokens_before_summary=4096)
-        ],
     )
     length = len(state["messages"])
     response = agent.invoke(

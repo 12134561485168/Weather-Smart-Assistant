@@ -27,11 +27,9 @@
 ```
 project2/
 ├── LICENSE                    # MIT 许可证
-├── .gitignore                 # Git 忽略规则（含 .env、start.bat 等本地文件）
+├── .gitignore                 # Git 忽略规则
 ├── requirements.txt           # 后端 Python 依赖
-├── start.bat                  # 本地一键启动脚本（已被 .gitignore 排除，需按本机环境编辑 PYTHON 路径）
 ├── backend/                   # 后端（所有 Python 服务）
-│   ├── .env                   # 环境变量（模型、密钥、Redis、Ollama 配置）—— 勿提交
 │   ├── mcp.json               # MCP 客户端连接配置（端口指向 MCP 服务器）
 │   ├── api.py                 # FastAPI 入口（/answer；支持 `__root__` 特殊检查点）
 │   ├── node.py                # LangGraph 状态图定义与节点实现
@@ -49,7 +47,7 @@ project2/
         ├── markdown.js        # 轻量 Markdown 渲染（对话气泡与播报卡片共用，安全转义后只注入白名单标签）
         ├── App.vue            # 分支会话主界面（含气象播报单侧栏）
         └── components/
-            └── WeatherReport.vue  # 气象播报单卡片（普通 / 紧凑两种模式）
+            └── WeatherReport.vue  # 气象播报单卡片
 ```
 
 ## 环境要求
@@ -90,8 +88,6 @@ npm install
 | `ollama_temperature` | `0.7` | 本地模型采样温度 |
 | `host` / `port` | `127.0.0.1` / `8000` | MCP 天气服务器监听地址与端口 |
 | `amap_key` | — | 高德地图 Web 服务 Key（地理编码，必填） |
-
-> 注意：`.env` 含密钥，请勿提交到版本库。
 
 初始化 RAG（可选，需 Redis + Ollama 就绪）：
 

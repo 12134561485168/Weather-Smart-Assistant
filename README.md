@@ -16,7 +16,7 @@
 | 模块 | 技术栈 | 说明 |
 | --- | --- | --- |
 | 前端 | Vue 3 + Vite | 对话式 UI，分支树展示，气象播报单侧栏 |
-| 后端 API | FastAPI | `/answer`、`/revoke` 两个接口，支持从历史检查点 fork 执行 |
+| 后端 API | FastAPI | `/answer` 接口，支持从历史检查点 fork 执行 |
 | 图编排 | LangGraph + RedisSaver | 节点：input → router → weather / weather_analysis / general；历史过长时 input 节点自动摘要压缩 |
 | MCP 服务器 | FastMCP (streamable-http) | 天气工具（Open-Meteo）+ 地理编码（高德地图）+ 北京时间工具 |
 | 模型 | OpenAI 兼容 API + Ollama | 主对话与子 Agent 经 `init_chat_model` 加载（`chat_model` 可选云端/本地）；路由模型按 `route_model` 独立选择；嵌入模型走 Ollama |
@@ -33,7 +33,7 @@ project2/
 ├── backend/                   # 后端（所有 Python 服务）
 │   ├── .env                   # 环境变量（模型、密钥、Redis、Ollama 配置）—— 勿提交
 │   ├── mcp.json               # MCP 客户端连接配置（端口指向 MCP 服务器）
-│   ├── api.py                 # FastAPI 入口（/answer、/revoke；支持 `__root__` 特殊检查点）
+│   ├── api.py                 # FastAPI 入口（/answer；支持 `__root__` 特殊检查点）
 │   ├── node.py                # LangGraph 状态图定义与节点实现
 │   ├── model.py               # 模型工厂（主对话模型 cloud/local、路由模型、embeddings）
 │   ├── tool.py                # MCP 天气服务器（天气查询 + 高德地理编码 + 北京时间）
@@ -42,7 +42,7 @@ project2/
 └── frontend/                  # Vue 3 前端
     ├── index.html
     ├── package.json           # 依赖与脚本（npm run dev）
-    ├── vite.config.js         # 端口 5173，代理 /answer、/revoke 到 5000
+    ├── vite.config.js         # 端口 5173，代理 /answer 到 5000
     └── src/
         ├── main.js
         ├── style.css
@@ -111,7 +111,7 @@ python -m uvicorn api:app --host 127.0.0.1 --port 5000
 npm run dev
 ```
 
-> 启动前请确保 Redis 与 Ollama 已运行。前端通过 Vite 代理 `/answer`、`/revoke` 到 `127.0.0.1:5000` 以避免跨域。
+> 启动前请确保 Redis 与 Ollama 已运行。前端通过 Vite 代理 `/answer` 到 `127.0.0.1:5000` 以避免跨域。
 > 也可直接运行根目录 `start.bat` 一键启动三项服务（MCP 天气服务器 `8000`、后端 API `5000`、前端 `5173`）。该脚本为本地文件（已被 .gitignore 排除），需先按本机环境修改其中的 `PYTHON` 路径；`api.py` 也支持 `python api.py` 直接跑一次调试查询。
 
 ## 核心流程
@@ -127,7 +127,7 @@ npm run dev
             └── 0 无关拒绝 → general 节点
 ```
 
-检查点由 `RedisSaver` 维护（TTL 30 分钟滑动续期），`/answer` 支持传入 `checkpoint_id` 从历史检查点 fork 执行，实现前端的分支与会话回溯；特殊值 `__root__` 表示从线程最旧的初始（空）检查点继续，用于"重新回答 / 撤销第一轮"。
+检查点由 `RedisSaver` 维护（TTL 30 分钟滑动续期），`/answer` 支持传入 `checkpoint_id` 从历史检查点 fork 执行，实现前端的分支与会话回溯；特殊值 `__root__` 表示从线程最旧的初始（空）检查点继续，用于"重新回答 / 编辑第一轮"。
 
 ## API 接口
 
@@ -149,12 +149,6 @@ npm run dev
 
 > `result` 类型因路由分支而异：实时天气查询返回结构化 `dict`；知识问答 / 无关拒绝 / 兜底场景返回 `str`；天气服务不可用时为 `null`。
 > `checkpoint_id` 传入历史检查点 id 时从该处 fork 生成独立分支（不污染原记录）；传 `__root__` 时从线程初始空检查点重新执行；非法值返回 400。
-
-**POST `/revoke`** — 删除目标检查点以外的全部回话（含其它分支），回退到该检查点；不传 `checkpoint_id` 则清空整个线程
-
-```json
-{ "thread_id": "12", "checkpoint_id": "xxx" }
-```
 
 ## 效果演示
 

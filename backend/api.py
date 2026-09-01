@@ -67,44 +67,6 @@ def answer(question: Question):
     }
 
 
-class Revoke(BaseModel):
-    checkpoint_id: str | None = None  # 不传则清空整个线程
-    thread_id: str
-
-
-@app.post("/revoke")
-def revoke_checkpoint(revoke: Revoke):
-    graph = get_graph()
-    checkpointer = graph.checkpointer  # RedisSaver
-    thread_id = "user_" + revoke.thread_id
-
-    # 未指定 checkpoint_id：删除整个线程（回退到最初）
-    if not revoke.checkpoint_id:
-        checkpointer.delete_thread(thread_id)
-        return {"success": True}
-
-    target = _resolve_cid(graph, thread_id, revoke.checkpoint_id)
-    if target is None:  # 空线程，等价于清空
-        checkpointer.delete_thread(thread_id)
-        return {"success": True}
-
-    snapshots = _history(graph, thread_id)
-    by_id = {s.config["configurable"]["checkpoint_id"]: s for s in snapshots}
-
-    # 保留 target 及其祖先链（即回退到的状态），其余检查点（含其它分支）全部删除
-    keep, cur, guard = set(), target, 0
-    while cur in by_id and guard <= len(by_id):
-        keep.add(cur)
-        parent = getattr(by_id[cur], "parent_config", None)
-        cur = parent["configurable"]["checkpoint_id"] if parent else None
-        guard += 1
-
-    for cid in by_id:
-        if cid not in keep:
-            checkpointer.delete(thread_id, cid)
-    return {"success": True}
-
-
 # 仅直接运行 python api.py 时才执行调试查询
 # uvicorn 导入模块时会运行在已有事件循环内，不能在模块顶层调用图（其中 weather 节点用 asyncio.run）
 if __name__ == "__main__":

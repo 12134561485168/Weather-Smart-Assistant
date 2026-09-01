@@ -512,27 +512,13 @@ function pageAnswer(node, dir) {
 }
 
 // ============================= 撤销 =============================
-// 删除该问题及其之后的全部分支（所有变体、所有后续），回退到提问前的状态
-async function revokeNode(node) {
+// 直接删除该问题及其之后的全部分支（所有变体、所有后续），回退到提问前的状态；
+// 仅在前端移除消息，不请求后端
+function revokeNode(node) {
   if (!node || loading.value) return
-  loading.value = true
-  error.value = ''
-  try {
-    const res = await fetch('/revoke', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ thread_id: threadId.value, checkpoint_id: node.sourceCid || '__root__' }),
-    })
-    if (!res.ok) throw new Error('撤销失败（HTTP ' + res.status + '）')
-    await res.json()
-    removeNode(node)
-    if (editingQid.value === node.qid) editingQid.value = null
-  } catch (e) {
-    error.value = '撤销失败：' + (e.message || '未知错误')
-  } finally {
-    loading.value = false
-    scrollToBottom()
-  }
+  removeNode(node)
+  if (editingQid.value === node.qid) editingQid.value = null
+  scrollToBottom()
 }
 
 function startNewSession() {

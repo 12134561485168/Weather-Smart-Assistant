@@ -54,6 +54,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { renderMarkdown } from '../markdown.js'
 
 // Result 结构化数据：time / summary / weather / clothing_advice / travel_tips / healthy_tips
 // 每个字段渲染为一张小卡片
@@ -178,6 +179,38 @@ const cards = computed(() =>
 .card-value.mono {
   font-family: var(--mono);
   font-size: 12.5px;
+}
+
+/* Markdown 内容：子元素由 v-html 生成、不带 scoped 属性，需用 :deep() 命中 */
+.card-value.markdown {
+  white-space: normal;
+}
+
+.card-value.markdown :deep(p) {
+  margin: 0.3em 0;
+}
+
+.card-value.markdown :deep(> :first-child) {
+  margin-top: 0;
+}
+
+.card-value.markdown :deep(> :last-child) {
+  margin-bottom: 0;
+}
+
+.card-value.markdown :deep(ul),
+.card-value.markdown :deep(ol) {
+  margin: 0.3em 0;
+  padding-left: 1.4em;
+}
+
+.card-value.markdown :deep(li) {
+  margin: 0.1em 0;
+}
+
+.card-value.markdown :deep(strong) {
+  color: #fff;
+  font-weight: 700;
 }
 
 /* 图标 */

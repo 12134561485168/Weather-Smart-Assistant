@@ -119,7 +119,7 @@
                 <template v-else>
                   <div class="assistant-content" :key="t.variants[t.active].cid || (t.variants.length + '-' + t.active)">
                     <template v-for="(m, mi) in t.variants[t.active].msgs" :key="mi">
-                        <div class="assistant-bubble plain">{{ m.content }}</div>
+                        <div class="assistant-bubble plain markdown" v-html="renderMarkdown(m.content)"></div>
                       </template>
                   </div>
                 </template>
@@ -182,6 +182,7 @@
 <script setup>
 import { ref, computed, reactive, nextTick, watch, onMounted } from 'vue'
 import WeatherReport from './components/WeatherReport.vue'
+import { renderMarkdown } from './markdown.js'
 
 // ============================= 状态 =============================
 // 消息以「分支树」组织：roots 为根列表，每个节点 = 一轮问答。
@@ -257,6 +258,7 @@ function tryParseStructured(r) {
   return null
 }
 
+// Markdown 渲染统一由 ./markdown.js 的 renderMarkdown 提供（先转义 HTML 再注入白名单标签，安全）
 function scrollToBottom() {
   nextTick(() => {
     if (scroller.value) scroller.value.scrollTop = scroller.value.scrollHeight
@@ -306,9 +308,11 @@ function removeNode(node) {
 // 结构化天气数据独立存在 structured 字段，供左侧「气象播报单」面板渲染，不进入消息流
 function buildVariant(data, question, origin, g) {
   const structured = tryParseStructured(data.result)
-  const msgs = structured
-    ? [{ role: 'assistant', content: '已为你查询到对应天气，气象播报单见左侧面板。' }]
-    : [{ role: 'assistant', content: String(data.result ?? '（未获取到有效回复）') }]
+  // 有结构化数据时，消息流优先展示 result 字段（AI 生成的回答正文）；缺失时回退到原提示文本
+  const content = structured
+    ? String(structured.result ?? '已为你查询到对应天气，气象播报单见左侧面板。')
+    : String(data.result ?? '（未获取到有效回复）')
+  const msgs = [{ role: 'assistant', content }]
   return { g, origin, question, cid: data.after_checkpoint_id ?? null, msgs, structured, children: [], pending: false }
 }
 
@@ -1047,6 +1051,59 @@ onMounted(() => scrollToBottom())
   white-space: pre-wrap;
   word-break: break-word;
   animation: rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Markdown 渲染内容：由块级元素承载排版，取消 pre-wrap 的额外换行；
+   子元素由 v-html 生成、不带 scoped 属性，需用 :deep() 命中 */
+.assistant-bubble.plain.markdown {
+  white-space: normal;
+}
+
+.assistant-bubble.plain.markdown :deep(p) {
+  margin: 0.35em 0;
+}
+
+.assistant-bubble.plain.markdown :deep(> :first-child) {
+  margin-top: 0;
+}
+
+.assistant-bubble.plain.markdown :deep(> :last-child) {
+  margin-bottom: 0;
+}
+
+.assistant-bubble.plain.markdown :deep(h3),
+.assistant-bubble.plain.markdown :deep(h4),
+.assistant-bubble.plain.markdown :deep(h5),
+.assistant-bubble.plain.markdown :deep(h6) {
+  margin: 0.55em 0 0.2em;
+  font-size: 1.04em;
+  color: var(--sun);
+  line-height: 1.5;
+}
+
+.assistant-bubble.plain.markdown :deep(ul),
+.assistant-bubble.plain.markdown :deep(ol) {
+  margin: 0.35em 0;
+  padding-left: 1.5em;
+}
+
+.assistant-bubble.plain.markdown :deep(li) {
+  margin: 0.12em 0;
+}
+
+.assistant-bubble.plain.markdown :deep(code) {
+  background: rgba(124, 196, 242, 0.14);
+  border: 1px solid rgba(124, 196, 242, 0.24);
+  border-radius: 5px;
+  padding: 0.08em 0.4em;
+  font-family: var(--mono);
+  font-size: 0.88em;
+  color: var(--sky);
+}
+
+.assistant-bubble.plain.markdown :deep(a) {
+  color: var(--sky);
+  text-decoration: underline;
 }
 
 .typing {

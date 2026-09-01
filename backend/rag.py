@@ -24,12 +24,11 @@ def add_rag_pdf(file_path=r"rag\9787502958572_L.pdf"):
         chunk_size=500, chunk_overlap=50, length_function=len
     )
 
-    # 直接对 Document 列表分割，返回更小的 Document 列表（需保留 metadata）
     splitter_documents = text_splitter.split_documents(documents)
 
     embeddings = embeddings_model()
 
-    # 用新库 langchain_redis 批量写入并建索引（默认字段 embedding/text，键前缀 weather）
+    # 用新库 langchain_redis 批量写入并建索引(由于本地环境限制，批量写入时可能会报错，故而逐个写入)
     re = RedisVectorStore.from_documents(
         documents=[splitter_documents[0]],
         embedding=embeddings,
@@ -66,5 +65,14 @@ def get_retriever(question):
 
 if __name__ == "__main__":
     # del_rag("weather")
-    # add_rag_pdf()
+    files = [
+    # r"rag\9787502958572_L.pdf",    
+    r"rag\气象灾害防御_示范地区作物气象灾害防御指南_气象出版社.pdf",
+    r"rag\气象科普_开远市气象科普手册_气象出版社.pdf",
+    r"rag\国标GBT44709-2024_旅游景区雷电灾害防御技术规范.pdf",
+    r"rag\国标GBT44954-2024_山岳地区雷电灾害防御技术规范.pdf",
+    r"rag\国标GBT37926-2019_美丽乡村气象防灾减灾指南.pdf",
+]
+    for file in files:
+        add_rag_pdf(file_path=file)
     print(get_retriever("重大气象灾害之后要注意什么"))

@@ -47,6 +47,12 @@ with open("mcp.json", "r", encoding="utf-8") as f:
     config = json.load(f)
 
 
+@lru_cache(maxsize=1)
+def get_mcp_client() -> MultiServerMCPClient:
+    """获取缓存的 MCP 客户端，避免每次天气查询都重复握手建立连接。"""
+    return MultiServerMCPClient(connections=config)
+
+
 def weather(state: GraphState):
     async def _run_async_logic():
         client = MultiServerMCPClient(connections=config)
@@ -103,11 +109,6 @@ def weather(state: GraphState):
             # 异常处理
             - 天气查询工具返回None时，说明天气查询工具目前不可用，可以返回给用户，让用户简述天气后再提问。
             """,
-            middleware=[
-                SummarizationMiddleware(
-                    model=chat_model(), max_tokens_before_summary=4096
-                )
-            ],
             response_format=Result,
         )
         length = len(state["messages"])
@@ -135,7 +136,10 @@ def input(state: GraphState):
         len(m.content if isinstance(m.content, str) else str(m.content or ""))
         for m in history
     )
-    if total_chars // 4 > 4096:  # 粗略估算 token（约 1 token ≈ 4 字符）
+    # 粗略估算 token（约 1 token ≈ 4 字符）；阈值由环境变量控制，
+    # 默认 4096，参考本地模型的 num_ctx 或云端模型上下文按需调整
+    threshold_tokens = int(os.getenv("SUMMARY_THRESHOLD_TOKENS", "4096"))
+    if total_chars // 4 > threshold_tokens:
         # 最近 6 条消息保留原文，更早的历史才做摘要
         older, newest = history[:-6], history[-6:]
         update = [RemoveMessage(id=REMOVE_ALL_MESSAGES)]  # 清空旧历史后整体替换
@@ -248,7 +252,7 @@ def weather_analysis(state: GraphState):
 
 def general(state: GraphState):
     return {
-        "messages": "你的问题与天气无关，请你重新告诉我你想了解的时间与地点",
+        "messages": [RemoveMessage(id=state["messages"][-1].id)],
         "result": "你的问题与天气无关，请你重新告诉我你想了解的时间与地点",
     }
 

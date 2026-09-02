@@ -4,6 +4,7 @@ from langchain_redis import RedisConfig, RedisVectorStore
 import redis
 from model import embeddings_model
 import os
+from functools import lru_cache
 from dotenv import load_dotenv
 
 load_dotenv()  # 加载 .env 文件中的环境变量
@@ -47,14 +48,19 @@ def del_rag(index_name):
     client.ft(index_name).dropindex(delete_documents=True)
 
 
-def get_retriever(question):
+@lru_cache(maxsize=1)
+def get_vector_store():
+    """获取缓存的 Redis 向量库客户端，避免每次检索都重建连接。"""
     embeddings = embeddings_model()
     config = RedisConfig(
         index_name="weather",
         redis_url=os.getenv("REDIS_URL"),
     )
+    return RedisVectorStore(embeddings, config=config)
 
-    vector_store = RedisVectorStore(embeddings, config=config)
+
+def get_retriever(question):
+    vector_store = get_vector_store()
     results = vector_store.similarity_search_with_score(question, 5)
     result = ""
     for i, j in results:
